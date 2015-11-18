@@ -32,7 +32,7 @@ class plgVmPaymentPaysoninvoice extends vmPSPlugin {
      */
     function getTableSQLFields() {
         $SQLfields = array(
-            'id' => 'int(1) UNSIGNED NOT NULL AUTO_INCREMENT',
+            'id' => 'int(1) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY',
             'virtuemart_order_id' => 'int(1) UNSIGNED',
             'order_number' => 'char(64)',
             'virtuemart_paymentmethod_id' => 'mediumint(1) UNSIGNED',
@@ -521,10 +521,10 @@ class plgVmPaymentPaysoninvoice extends vmPSPlugin {
             $shipment_tax = (100 * $order['details']['BT']->order_shipment_tax) / $order['details']['BT']->order_shipment;
             $orderItems[] = new OrderItem('Frakt', $paymentCurrency->convertCurrencyTo($cart->pricesCurrency, $order['details']['BT']->order_shipment, FALSE), 1, $shipment_tax / 100, 9998);
         }
-        /* if ($order['details']['BT']->order_payment >> 0) {
-          $invoiceFee = (100 * $order['details']['BT']->order_payment_tax) / $order['details']['BT']->order_payment;
-          $orderItems[] = new OrderItem('Faktura', $paymentCurrency->convertCurrencyTo($cart->pricesCurrency, $order['details']['BT']->order_payment, FALSE), 1, $invoiceFee / 100, 9999);
-          } */
+
+        if($order['details']['BT']->coupon_discount !== 0){
+            $orderItems[] = new OrderItem('Rabatt', $paymentCurrency->convertCurrencyTo($cart->pricesCurrency, $order['details']['BT']->coupon_discount, FALSE), 1, 0, 'SKU');
+        }
         return $orderItems;
     }
 
