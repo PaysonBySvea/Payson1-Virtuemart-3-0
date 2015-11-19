@@ -5,7 +5,7 @@ Payson Payment Module - VirtueMart-3
 Requirements: 
 
 * Curl
-* Joomla 2.5.27
+* Joomla 3.4.5
 * VirtueMart 3.0
 
 
