@@ -8,7 +8,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysondirect extends vmPSPlugin {
 
-    public $module_vesion = '3.0.1';
+    public $module_vesion = '3.0.2';
 
     function __construct(& $subject, $config) {
 
@@ -514,7 +514,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
             $orderItems[] = new OrderItem('Frakt', $paymentCurrency->convertCurrencyTo($cart->pricesCurrency, $order['details']['BT']->order_shipment, FALSE), 1, $shipment_tax / 100, 9998);
         }
 
-        if($order['details']['BT']->coupon_discount !== 0){
+        if($order['details']['BT']->coupon_discount != 0){
             $orderItems[] = new OrderItem('Rabatt', $paymentCurrency->convertCurrencyTo($cart->pricesCurrency, $order['details']['BT']->coupon_discount, FALSE), 1, 0, 'Rabatt');
         }
         return $orderItems;
