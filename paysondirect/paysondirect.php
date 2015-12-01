@@ -8,7 +8,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysondirect extends vmPSPlugin {
 
-    public $module_vesion = '3.0.2';
+    public $module_vesion = '3.0.3';
 
     function __construct(& $subject, $config) {
 
@@ -89,8 +89,9 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
                         '&pm=' . $order['details']['BT']->virtuemart_paymentmethod_id);
 		$cancel_url = JROUTE::_(JURI::root() . 'index.php?option=com_virtuemart&view=pluginresponse&task=pluginUserPaymentCancel&on=' . $order['details']['BT']->virtuemart_order_id .
                         '&pm=' . $order['details']['BT']->virtuemart_paymentmethod_id);
+        $orderNumber = $order['details']['BT']->order_number;
         $this->paysonApi(
-                $method, $totalInPaymentCurrency, $this->currencyPaysondirect($currencyToPayson->currency_code_3), $this->languagePaysondirect($langCode[0]), $user_billing_info, $user_shipping_info, $return_url, $ipn_url, $cancel_url, $order['details']['BT']->virtuemart_order_id, $this->setOrderItems($cart, $order), $order['details']['BT']->order_payment
+                $method, $totalInPaymentCurrency, $this->currencyPaysondirect($currencyToPayson->currency_code_3), $this->languagePaysondirect($langCode[0]), $user_billing_info, $user_shipping_info, $return_url, $ipn_url, $cancel_url, $order['details']['BT']->virtuemart_order_id, $orderNumber, $this->setOrderItems($cart, $order), $order['details']['BT']->order_payment
         );
 
         if (!class_exists('VirtueMartModelOrders')) {
@@ -317,7 +318,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         }
     }
 
-    function paysonApi($method, $amount, $currency, $langCode, $user_billing_info, $user_shipping_info, $return_url, $ipn_url, $cancel_url, $virtuemart_order_id, $orderItems) {
+    function paysonApi($method, $amount, $currency, $langCode, $user_billing_info, $user_shipping_info, $return_url, $ipn_url, $cancel_url, $virtuemart_order_id, $orderNumber, $orderItems) {
         require_once (JPATH_ROOT . DS . 'plugins' . DS . 'vmpayment' . DS . 'paysondirect' . DS . 'payson' . DS . 'paysonapi.php');
 
         $api = $this->getAPIInstance($method);
@@ -330,7 +331,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
 
         $receivers = array($receiver);
         $sender = new Sender($user_billing_info->email, $user_billing_info->first_name, $user_billing_info->last_name);
-        $payData = new PayData($return_url, $cancel_url, $ipn_url, (isset(VmModel::getModel('vendor')->getVendor()->vendor_store_name) != null && strlen(VmModel::getModel('vendor')->getVendor()->vendor_store_name) <= 110 ? VmModel::getModel('vendor')->getVendor()->vendor_store_name : JURI::root()) . ' Order: ' . $virtuemart_order_id, $sender, $receivers);
+        $payData = new PayData($return_url, $cancel_url, $ipn_url, (isset(VmModel::getModel('vendor')->getVendor()->vendor_store_name) != null && strlen(VmModel::getModel('vendor')->getVendor()->vendor_store_name) <= 110 ? VmModel::getModel('vendor')->getVendor()->vendor_store_name : JURI::root()) . ' Order: ' . $orderNumber, $sender, $receivers);
         $payData->setCurrencyCode($currency);
         $payData->setLocaleCode($langCode);
 
