@@ -8,7 +8,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysondirect extends vmPSPlugin {
 
-    public $module_vesion = '3.0.3';
+    public $module_vesion = '3.0.4';
 
     function __construct(& $subject, $config) {
 
@@ -30,7 +30,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
      */
     function getTableSQLFields() {
         $SQLfields = array(
-            'id' => 'int(1) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY',
+            'id' => 'int(1) UNSIGNED NOT NULL AUTO_INCREMENT',
             'virtuemart_order_id' => 'int(1) UNSIGNED',
             'order_number' => 'char(64)',
             'virtuemart_paymentmethod_id' => 'mediumint(1) UNSIGNED',

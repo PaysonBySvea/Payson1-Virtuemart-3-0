@@ -8,11 +8,9 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysoninvoice extends vmPSPlugin {
 
-    public $module_vesion = '3.0.3';
+    public $module_vesion = '3.0.4';
 
     function __construct(& $subject, $config) {
-
-
 
         parent::__construct($subject, $config);
         $this->_loggable = true;
@@ -32,7 +30,7 @@ class plgVmPaymentPaysoninvoice extends vmPSPlugin {
      */
     function getTableSQLFields() {
         $SQLfields = array(
-            'id' => 'int(1) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY',
+            'id' => 'int(1) UNSIGNED NOT NULL AUTO_INCREMENT',
             'virtuemart_order_id' => 'int(1) UNSIGNED',
             'order_number' => 'char(64)',
             'virtuemart_paymentmethod_id' => 'mediumint(1) UNSIGNED',
@@ -41,6 +39,7 @@ class plgVmPaymentPaysoninvoice extends vmPSPlugin {
             'payment_currency' => 'char(3)',
             'cost_per_transaction' => 'decimal(10,2)',
             'cost_percent_total' => 'decimal(10,2)',
+            'tax_id' => 'smallint(1)',
             'added' => 'datetime',
             'updated' => 'datetime',
             'valid' => 'tinyint(1) NOT NULL',
