@@ -8,7 +8,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysoninvoice extends vmPSPlugin {
 
-    public $module_vesion = '3.0.4';
+    public $module_vesion = '3.0.5';
 
     function __construct(& $subject, $config) {
 
@@ -510,11 +510,30 @@ class plgVmPaymentPaysoninvoice extends vmPSPlugin {
         $orderItems = array();
         foreach ($cart->products as $key => $product) {
             $i = 0;
-            $orderItems[] = new OrderItem(
-                    substr(strip_tags($product->product_name), 0, 127), strtoupper($paymentCurrency->ensureUsingCurrencyCode($product->product_currency)) != 'SEK' ? $paymentCurrency->convertCurrencyTo($paymentCurrency->getCurrencyIdByField('SEK'), $cart->pricesUnformatted[$key]['discountedPriceWithoutTax']     , FALSE) :
-                            $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], $product->quantity, $this->getTaxRate($cart->pricesUnformatted[$key]['product_tax_id'], $cart->pricesUnformatted[$key]['taxAmount']), $product->product_sku != Null ? $product->product_sku : 'Product sku'
-            );
-            $i++;
+            //Check if there is a generic tax, which is related to a productCategory
+            if (($cart->pricesUnformatted[$key]['product_tax_id'] == 0) && ($cart->pricesUnformatted[$key]['taxAmount'] > 0)) {
+                $taxId = 0;
+                //Checks what type of tax has been registered to the selected orderitem, if the array is populated get that id and use $this->getTaxRate to fetch the tax rate
+                if ($cart->cartPrices[$key]['DBTax']) {
+                    $taxId = key($cart->cartPrices[$key]['DBTax']);
+                } elseif ($cart->cartPrices[$key]['Tax']) {
+                    $taxId = key($cart->cartPrices[$key]['Tax']);
+                } elseif ($cart->cartPrices[$key]['VatTax']) {
+                    $taxId = key($cart->cartPrices[$key]['VatTax']);
+                } elseif ($cart->cartPrices[$key]['DATax']) {
+                    $taxId = key($cart->cartPrices[$key]['DATax']);
+                }
+                $orderItems[] = new OrderItem(
+                        substr(strip_tags($product->product_name), 0, 127), strtoupper($paymentCurrency->ensureUsingCurrencyCode($product->product_currency)) != 'SEK' ? $paymentCurrency->convertCurrencyTo($paymentCurrency->getCurrencyIdByField('SEK'), $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], FALSE) :
+                                $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], $product->quantity, $this->getTaxRate($taxId, $cart->pricesUnformatted[$key]['taxAmount']), $product->product_sku != Null ? $product->product_sku : 'Product sku'
+                );
+            } else {
+                $orderItems[] = new OrderItem(
+                        substr(strip_tags($product->product_name), 0, 127), strtoupper($paymentCurrency->ensureUsingCurrencyCode($product->product_currency)) != 'SEK' ? $paymentCurrency->convertCurrencyTo($paymentCurrency->getCurrencyIdByField('SEK'), $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], FALSE) :
+                                $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], $product->quantity, $this->getTaxRate($cart->pricesUnformatted[$key]['product_tax_id'], $cart->pricesUnformatted[$key]['taxAmount']), $product->product_sku != Null ? $product->product_sku : 'Product sku'
+                );
+                $i++;
+            }
         }
 
         if ($order['details']['BT']->order_shipment >> 0) {

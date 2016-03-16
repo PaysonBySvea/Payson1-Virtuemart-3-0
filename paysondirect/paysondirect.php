@@ -8,7 +8,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysondirect extends vmPSPlugin {
 
-    public $module_vesion = '3.0.4';
+    public $module_vesion = '3.0.5';
 
     function __construct(& $subject, $config) {
 
@@ -30,7 +30,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
      */
     function getTableSQLFields() {
         $SQLfields = array(
-            'id' => 'int(1) UNSIGNED NOT NULL AUTO_INCREMENT',
+            'id' => 'int(1) UNSIGNED NOT NULL',
             'virtuemart_order_id' => 'int(1) UNSIGNED',
             'order_number' => 'char(64)',
             'virtuemart_paymentmethod_id' => 'mediumint(1) UNSIGNED',
@@ -87,7 +87,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
                         '&pm=' . $order['details']['BT']->virtuemart_paymentmethod_id);
         $return_url = JROUTE::_(JURI::root() . 'index.php?option=com_virtuemart&view=pluginresponse&task=pluginresponsereceived&on=' . $order['details']['BT']->virtuemart_order_id .
                         '&pm=' . $order['details']['BT']->virtuemart_paymentmethod_id);
-		$cancel_url = JROUTE::_(JURI::root() . 'index.php?option=com_virtuemart&view=pluginresponse&task=pluginUserPaymentCancel&on=' . $order['details']['BT']->virtuemart_order_id .
+        $cancel_url = JROUTE::_(JURI::root() . 'index.php?option=com_virtuemart&view=pluginresponse&task=pluginUserPaymentCancel&on=' . $order['details']['BT']->virtuemart_order_id .
                         '&pm=' . $order['details']['BT']->virtuemart_paymentmethod_id);
         $orderNumber = $order['details']['BT']->order_number;
         $this->paysonApi(
@@ -165,8 +165,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         $address = (($cart->ST == 0) ? $cart->BT : $cart->ST);
 
         $amount = $cart_prices['salesPrice'];
-        $amount_cond = ($amount >= $method->min_amount AND $amount <= $method->max_amount OR
-                ($method->min_amount <= $amount AND ($method->max_amount == 0)));
+        $amount_cond = ($amount >= $method->min_amount AND $amount <= $method->max_amount OR ( $method->min_amount <= $amount AND ( $method->max_amount == 0)));
         if (!$amount_cond) {
             return false;
         }
@@ -292,7 +291,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         $sgroup = $db->loadAssoc();
         $api = $this->getAPIInstance($method);
         $paymentDetails = $api->paymentDetails(new PaymentDetailsData(JRequest::getString('TOKEN')))->getPaymentDetails();
- 
+
         if ($paymentDetails->getStatus() == 'COMPLETED' && $paymentDetails->getType() == 'TRANSFER') {
             $payment_name = $this->renderPluginName($method);
             $modelOrder = VmModel::getModel('orders');
@@ -339,17 +338,17 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         $constraints = array($method->paymentmethod);
         $payData->setFundingConstraints($constraints);
         $payData->setGuaranteeOffered('NO');
-        
+
 
         $payData->setTrackingId(md5($method->secure_word) . '1-' . $virtuemart_order_id);
         $payResponse = $api->pay($payData);
-        
+
         if ($method->logg) {
-                $this->debugLog($this->module_vesion, "Payson Direct", "Module Version");
-                $this->debugLog($amount, "Amount", "PaysonAPI");
-                $this->debugLog($orderItems, "Payment details", "PaysonAPI");
+            $this->debugLog($this->module_vesion, "Payson Direct", "Module Version");
+            $this->debugLog($amount, "Amount", "PaysonAPI");
+            $this->debugLog($orderItems, "Payment details", "PaysonAPI");
         }
-        
+
         if ($payResponse->getResponseEnvelope()->wasSuccessful()) {  //ack = SUCCESS och token  = token = N�got
             //return the url: https://www.payson.se/paysecure/?token=#
             header("Location: " . $api->getForwardPayUrl($payResponse));
@@ -382,12 +381,12 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         $credentials = new PaysonCredentials(trim($method->agent_id), trim($method->md5_key));
         $api = new PaysonApi($credentials);
         $response = $api->validate($postData);
-        
+
         if ($method->logg) {
             $this->debugLog($response->getPaymentDetails()->getPurchaseId(), "Paysons-ref", "PaysonIPN Notification");
             $this->debugLog($response->getPaymentDetails()->getStatus(), "status", "PaysonIPN Notification");
         }
-        
+
         if ($response->isVerified()) {
             $salt = explode("-", $response->getPaymentDetails()->getTrackingId());
             if ($salt[0] == (md5($method->secure_word) . '1')) {
@@ -490,8 +489,6 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         $order['customer_notified'] = 0;
         $order['comments'] = 'Cancel payment';
         $modelOrder->updateStatusForOneOrder($order_number, $order, TRUE);
-
- 
     }
 
     function setOrderItems($cart, $order) {
@@ -502,12 +499,30 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         $orderItems = array();
         foreach ($cart->products as $key => $product) {
             $i = 0;
-            //echo '<pre>';print_r($cart->pricesUnformatted[$key]['product_tax_id']);echo '</pre>';exit;
-            $orderItems[] = new OrderItem(
-                    substr(strip_tags($product->product_name), 0, 127), strtoupper($paymentCurrency->ensureUsingCurrencyCode($product->product_currency)) != 'SEK' ? $paymentCurrency->convertCurrencyTo($paymentCurrency->getCurrencyIdByField('SEK'), $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], FALSE) :
-                            $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], $product->quantity, $this->getTaxRate($cart->pricesUnformatted[$key]['product_tax_id'], $cart->pricesUnformatted[$key]['taxAmount']), $product->product_sku != Null ? $product->product_sku : 'Product sku'
-            );
-            $i++;
+            //Check if there is a generic tax, which is related to a productCategory
+            if (($cart->pricesUnformatted[$key]['product_tax_id'] == 0) && ($cart->pricesUnformatted[$key]['taxAmount'] > 0)) {
+                $taxId = 0;
+                //Checks what type of tax has been registered to the selected orderitem, if the array is populated get that id and use $this->getTaxRate to fetch the tax rate
+                if ($cart->cartPrices[$key]['DBTax']) {
+                    $taxId = key($cart->cartPrices[$key]['DBTax']);
+                } elseif ($cart->cartPrices[$key]['Tax']) {
+                    $taxId = key($cart->cartPrices[$key]['Tax']);
+                } elseif ($cart->cartPrices[$key]['VatTax']) {
+                    $taxId = key($cart->cartPrices[$key]['VatTax']);
+                } elseif ($cart->cartPrices[$key]['DATax']) {
+                    $taxId = key($cart->cartPrices[$key]['DATax']);
+                }
+                $orderItems[] = new OrderItem(
+                        substr(strip_tags($product->product_name), 0, 127), strtoupper($paymentCurrency->ensureUsingCurrencyCode($product->product_currency)) != 'SEK' ? $paymentCurrency->convertCurrencyTo($paymentCurrency->getCurrencyIdByField('SEK'), $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], FALSE) :
+                                $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], $product->quantity, $this->getTaxRate($taxId, $cart->pricesUnformatted[$key]['taxAmount']), $product->product_sku != Null ? $product->product_sku : 'Product sku'
+                );
+            } else {
+                $orderItems[] = new OrderItem(
+                        substr(strip_tags($product->product_name), 0, 127), strtoupper($paymentCurrency->ensureUsingCurrencyCode($product->product_currency)) != 'SEK' ? $paymentCurrency->convertCurrencyTo($paymentCurrency->getCurrencyIdByField('SEK'), $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], FALSE) :
+                                $cart->pricesUnformatted[$key]['discountedPriceWithoutTax'], $product->quantity, $this->getTaxRate($cart->pricesUnformatted[$key]['product_tax_id'], $cart->pricesUnformatted[$key]['taxAmount']), $product->product_sku != Null ? $product->product_sku : 'Product sku'
+                );
+                $i++;
+            }
         }
 
         if ($order['details']['BT']->order_shipment >> 0) {
@@ -515,7 +530,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
             $orderItems[] = new OrderItem('Frakt', $paymentCurrency->convertCurrencyTo($cart->pricesCurrency, $order['details']['BT']->order_shipment, FALSE), 1, $shipment_tax / 100, 9998);
         }
 
-        if($order['details']['BT']->coupon_discount != 0){
+        if ($order['details']['BT']->coupon_discount != 0) {
             $orderItems[] = new OrderItem('Rabatt', $paymentCurrency->convertCurrencyTo($cart->pricesCurrency, $order['details']['BT']->coupon_discount, FALSE), 1, 0, 'Rabatt');
         }
         return $orderItems;
