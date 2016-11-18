@@ -30,7 +30,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
      */
     function getTableSQLFields() {
         $SQLfields = array(
-            'id' => 'int(1) UNSIGNED NOT NULL',
+            'id' => 'int(1) unsigned NOT NULL AUTO_INCREMENT',
             'virtuemart_order_id' => 'int(1) UNSIGNED',
             'order_number' => 'char(64)',
             'virtuemart_paymentmethod_id' => 'mediumint(1) UNSIGNED',
