@@ -8,7 +8,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysondirect extends vmPSPlugin {
 
-    public $module_vesion = '3.0.5';
+    public $module_vesion = '3.0.6';
 
     function __construct(& $subject, $config) {
 
@@ -261,7 +261,6 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
     }
 
     function plgVmOnPaymentResponseReceived(&$html) {
-        //require_once (JPATH_ROOT . DS . 'plugins' . DS . 'vmpayment' . DS . 'paysondirect' . DS . 'payson' . DS . 'paysonapi.php');
 
         if (!class_exists('VirtueMartCart')) {
             require(JPATH_VM_SITE . DS . 'helpers' . DS . 'cart.php');
@@ -270,7 +269,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
             require(JPATH_VM_SITE . DS . 'helpers' . DS . 'shopfunctionsf.php');
         }
         if (!class_exists('VirtueMartModelOrders')) {
-            require(JPATH_VM_ADMINISTRATOR . DS . 'models' . DS . 'orders.php');
+            require(VMPATH_ADMIN . DS . 'models' . DS . 'orders.php');
         }
 
         $virtuemart_paymentmethod_id = JRequest::getInt('pm', 0);
@@ -292,24 +291,32 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         $api = $this->getAPIInstance($method);
         $paymentDetails = $api->paymentDetails(new PaymentDetailsData(JRequest::getString('TOKEN')))->getPaymentDetails();
 
+        $modelOrder = VmModel::getModel('orders');
+        $order = $modelOrder->getOrder($order_number);
+ 
         if ($paymentDetails->getStatus() == 'COMPLETED' && $paymentDetails->getType() == 'TRANSFER') {
-            $payment_name = $this->renderPluginName($method);
-            $modelOrder = VmModel::getModel('orders');
+           
+                $html = $this->renderByLayout('post_payment', array(
+			'order_number' => $order['details']['BT']->order_number,
+			'order_pass' =>$order['details']['BT']->order_pass,
+			'payment_name' => $this->renderPluginName($method)	
+		));
+                            
             $order['order_status'] = $method->payment_approved_status;
             $order['customer_notified'] = 1;
             $order['comments'] = 'Paysons-ref: ' . $paymentDetails->getPurchaseId();
-            $modelOrder->updateStatusForOneOrder($order_number, $order, TRUE);
+            $modelOrder->updateStatusForOneOrder($order['details']['BT']->virtuemart_order_id, $order, TRUE);
 
             $cart = VirtueMartCart::getCart();
             $cart->emptyCart();
+            vRequest::setVar ('html', $html);
             return TRUE;
-        }if ($paymentDetails->getStatus() == 'ERROR') {
-            $payment_name = $this->renderPluginName($method);
-            $modelOrder = VmModel::getModel('orders');
+        }if ($paymentDetails->getStatus() == 'ERROR' || $paymentDetails->getStatus() == 'REVERSALERROR' || $paymentDetails->getStatus() == 'ABORTED') {
+
             $order['order_status'] = $method->payment_declined_status;
             $order['customer_notified'] = 0;
             $order['comments'] = 'Paysons-ref: ' . $paymentDetails->getPurchaseId();
-            $modelOrder->updateStatusForOneOrder($order_number, $order, FALSE);
+            $modelOrder->updateStatusForOneOrder($order['details']['BT']->virtuemart_order_id, $order, FALSE);
             $mainframe = JFactory::getApplication();
             $mainframe->redirect(JRoute::_('index.php?option=com_virtuemart&view=cart'), $html);
         } else {
@@ -323,13 +330,15 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         $api = $this->getAPIInstance($method);
 
         if ($method->sandbox) {
-            $receiver = new Receiver('testagent-1@payson.se', $amount);
+            $receiver = new Receiver('testagent-checkout2@payson.se', $amount);
+            $sender = new Sender('test@payson.se', $user_billing_info->first_name, $user_billing_info->last_name);
         } else {
             $receiver = new Receiver(trim($method->seller_email), $amount);
+            $sender = new Sender($user_billing_info->email, $user_billing_info->first_name, $user_billing_info->last_name);
         }
 
         $receivers = array($receiver);
-        $sender = new Sender($user_billing_info->email, $user_billing_info->first_name, $user_billing_info->last_name);
+        
         $payData = new PayData($return_url, $cancel_url, $ipn_url, (isset(VmModel::getModel('vendor')->getVendor()->vendor_store_name) != null && strlen(VmModel::getModel('vendor')->getVendor()->vendor_store_name) <= 110 ? VmModel::getModel('vendor')->getVendor()->vendor_store_name : JURI::root()) . ' Order: ' . $orderNumber, $sender, $receivers);
         $payData->setCurrencyCode($currency);
         $payData->setLocaleCode($langCode);
@@ -393,20 +402,20 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
                 $response->getPaymentDetails();
                 $database = JFactory::getDBO();
                 $database->setQuery("UPDATE`" . $this->_tablename . "`SET 
-												`token`						   ='" . addslashes($response->getPaymentDetails()->getToken()) . "', 
-												`ipn_status`				   ='" . addslashes($response->getPaymentDetails()->getStatus()) . "', 
-												`tracking_id`				   ='" . $response->getPaymentDetails()->getTrackingId() . "', 
-												`sender_email`				   ='" . addslashes($response->getPaymentDetails()->getSenderEmail()) . "', 
-												`type`                         ='" . addslashes($response->getPaymentDetails()->getType()) . "', 
-												`customer`                     ='" . addslashes($response->getPaymentDetails()->getCustom()) . "', 
-												`purchase_id`                  ='" . addslashes($response->getPaymentDetails()->getPurchaseId()) . "', 
-												`sender_email`                 ='" . addslashes($response->getPaymentDetails()->getSenderEmail()) . "',  
-											    `shippingAddress_name`         ='" . addslashes($response->getPaymentDetails()->getShippingAddressName()) . "', 
-												`shippingAddress_street_ddress`='" . addslashes($response->getPaymentDetails()->getShippingAddressStreetAddress()) . "', 
-												`shippingAddress_postal_code`  ='" . addslashes($response->getPaymentDetails()->getShippingAddressPostalCode()) . "', 
-												`shippingAddress_city`		   ='" . addslashes($response->getPaymentDetails()->getShippingAddressCity()) . "', 
-												`shippingAddress_country`	   ='" . addslashes($response->getPaymentDetails()->getShippingAddressCountry()) . "' 
-												WHERE  `virtuemart_order_id`   =" . $order_number);
+                        `token`                        ='" . addslashes($response->getPaymentDetails()->getToken()) . "', 
+                        `ipn_status`		       ='" . addslashes($response->getPaymentDetails()->getStatus()) . "', 
+                        `tracking_id`		       ='" . $response->getPaymentDetails()->getTrackingId() . "', 
+                        `sender_email`		       ='" . addslashes($response->getPaymentDetails()->getSenderEmail()) . "', 
+                        `type`                         ='" . addslashes($response->getPaymentDetails()->getType()) . "', 
+                        `customer`                     ='" . addslashes($response->getPaymentDetails()->getCustom()) . "', 
+                        `purchase_id`                  ='" . addslashes($response->getPaymentDetails()->getPurchaseId()) . "', 
+                        `sender_email`                 ='" . addslashes($response->getPaymentDetails()->getSenderEmail()) . "',  
+                        `shippingAddress_name`         ='" . addslashes($response->getPaymentDetails()->getShippingAddressName()) . "', 
+                        `shippingAddress_street_ddress`='" . addslashes($response->getPaymentDetails()->getShippingAddressStreetAddress()) . "', 
+                        `shippingAddress_postal_code`  ='" . addslashes($response->getPaymentDetails()->getShippingAddressPostalCode()) . "', 
+                        `shippingAddress_city`	       ='" . addslashes($response->getPaymentDetails()->getShippingAddressCity()) . "', 
+                        `shippingAddress_country`      ='" . addslashes($response->getPaymentDetails()->getShippingAddressCountry()) . "' 
+                        WHERE  `virtuemart_order_id`   =" . $order_number);
                 $database->query();
 
                 if ($response->getPaymentDetails()->getStatus() == 'COMPLETED' && $response->getPaymentDetails()->getType() == 'TRANSFER') {
@@ -419,12 +428,13 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
                     $cart = VirtueMartCart::getCart();
                     $cart->emptyCart();
                     return TRUE;
-                }if ($paymentDetails->getStatus() == 'ERROR' && $paymentDetails->getType() == 'TRANSFER') {
+                }
+                if ($response->getPaymentDetails()->getStatus() == 'ERROR' || $response->getPaymentDetails()->getStatus() == 'REVERSALERROR' || $response->getPaymentDetails()->getStatus() == 'ABORTED') {
                     $payment_name = $this->renderPluginName($method);
                     $modelOrder = VmModel::getModel('orders');
                     $order['order_status'] = $method->payment_declined_status;
                     $order['customer_notified'] = 0;
-                    $order['comments'] = 'Paysons-ref: ' . $paymentDetails->getPurchaseId();
+                    $order['comments'] = 'Paysons-ref: ' . $response->paymentDetails->getPurchaseId();
                     $modelOrder->updateStatusForOneOrder($salt[count($salt) - 1], $order, FALSE);
                 }
             }
@@ -435,7 +445,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         require_once (JPATH_ROOT . DS . 'plugins' . DS . 'vmpayment' . DS . 'paysondirect' . DS . 'payson' . DS . 'paysonapi.php');
 
         if ($method->sandbox) {
-            $credentials = new PaysonCredentials(1, 'fddb19ac-7470-42b6-a91d-072cb1495f0a', null, 'payson_virtuemart|' . $this->module_vesion . '|' . VmConfig::getInstalledVersion());
+            $credentials = new PaysonCredentials(4, '2acab30d-fe50-426f-90d7-8c60a7eb31d4', null, 'payson_virtuemart|' . $this->module_vesion . '|' . VmConfig::getInstalledVersion());
         } else {
             $credentials = new PaysonCredentials(trim($method->agent_id), trim($method->md5_key), null, 'payson_virtuemart|' . $this->module_vesion . '|' . VmConfig::getInstalledVersion());
         }
@@ -463,6 +473,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         if (!class_exists('VirtueMartCart')) {
             require(JPATH_VM_SITE . DS . 'helpers' . DS . 'cart.php');
         }
+
         if (!class_exists('shopFunctionsF')) {
             require(JPATH_VM_SITE . DS . 'helpers' . DS . 'shopfunctionsf.php');
         }
