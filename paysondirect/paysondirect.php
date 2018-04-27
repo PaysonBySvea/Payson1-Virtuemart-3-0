@@ -8,7 +8,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysondirect extends vmPSPlugin {
 
-    public $module_vesion = '3.0.6';
+    public $module_vesion = '3.0.7';
 
     function __construct(& $subject, $config) {
 
@@ -261,7 +261,6 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
     }
 
     function plgVmOnPaymentResponseReceived(&$html) {
-
         if (!class_exists('VirtueMartCart')) {
             require(JPATH_VM_SITE . DS . 'helpers' . DS . 'cart.php');
         }
@@ -271,7 +270,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
         if (!class_exists('VirtueMartModelOrders')) {
             require(VMPATH_ADMIN . DS . 'models' . DS . 'orders.php');
         }
-
+        
         $virtuemart_paymentmethod_id = JRequest::getInt('pm', 0);
         $order_number = JRequest::getString('on', 0);
 
@@ -293,17 +292,19 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
 
         $modelOrder = VmModel::getModel('orders');
         $order = $modelOrder->getOrder($order_number);
- 
+        
         if ($paymentDetails->getStatus() == 'COMPLETED' && $paymentDetails->getType() == 'TRANSFER') {
-           
-                $html = $this->renderByLayout('post_payment', array(
-			'order_number' => $order['details']['BT']->order_number,
-			'order_pass' =>$order['details']['BT']->order_pass,
-			'payment_name' => $this->renderPluginName($method)	
-		));
-                            
-            $order['order_status'] = $method->payment_approved_status;
+            $html = $this->renderByLayout('post_payment', array(
+                'order_number' => $order['details']['BT']->order_number,
+                'order_pass' => $order['details']['BT']->order_pass,
+                'payment_name' => $this->renderPluginName($method)	
+            ));
             $order['customer_notified'] = 1;
+            // Do not send email if order exists and status is approved
+            if ($order['details']['BT'] && ($order['details']['BT']->order_status == $method->payment_approved_status)) {
+                $order['customer_notified'] = 0;
+            }
+            $order['order_status'] = $method->payment_approved_status;
             $order['comments'] = 'Paysons-ref: ' . $paymentDetails->getPurchaseId();
             $modelOrder->updateStatusForOneOrder($order['details']['BT']->virtuemart_order_id, $order, TRUE);
 
@@ -311,8 +312,9 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
             $cart->emptyCart();
             vRequest::setVar ('html', $html);
             return TRUE;
-        }if ($paymentDetails->getStatus() == 'ERROR' || $paymentDetails->getStatus() == 'REVERSALERROR' || $paymentDetails->getStatus() == 'ABORTED') {
-
+        }
+        
+        if ($paymentDetails->getStatus() == 'ERROR' || $paymentDetails->getStatus() == 'REVERSALERROR' || $paymentDetails->getStatus() == 'ABORTED') {
             $order['order_status'] = $method->payment_declined_status;
             $order['customer_notified'] = 0;
             $order['comments'] = 'Paysons-ref: ' . $paymentDetails->getPurchaseId();
@@ -370,7 +372,7 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
             $mainframe->redirect(JRoute::_('index.php?option=com_virtuemart&view=cart'));
         }
     }
-
+    
     function plgVmOnPaymentNotification() {
         require_once (JPATH_ROOT . DS . 'plugins' . DS . 'vmpayment' . DS . 'paysondirect' . DS . 'payson' . DS . 'paysonapi.php');
         $order_number = JRequest::getString('on', 0);
@@ -421,14 +423,21 @@ class plgVmPaymentPaysondirect extends vmPSPlugin {
                 if ($response->getPaymentDetails()->getStatus() == 'COMPLETED' && $response->getPaymentDetails()->getType() == 'TRANSFER') {
                     $payment_name = $this->renderPluginName($method);
                     $modelOrder = VmModel::getModel('orders');
-                    $order['order_status'] = $method->payment_approved_status;
+                    $orderExists = $modelOrder->getOrder($order_number);
+                    
                     $order['customer_notified'] = 1;
+                    // Do not send email if order exists and status is approved
+                    if ($orderExists['details']['BT'] && ($orderExists['details']['BT']->order_status == $method->payment_approved_status)) {
+                        $order['customer_notified'] = 0;
+                    }
+                    $order['order_status'] = $method->payment_approved_status;
                     $order['comments'] = 'Paysons-ref: ' . $response->getPaymentDetails()->getPurchaseId();
                     $modelOrder->updateStatusForOneOrder($salt[count($salt) - 1], $order, TRUE);
                     $cart = VirtueMartCart::getCart();
                     $cart->emptyCart();
                     return TRUE;
                 }
+                
                 if ($response->getPaymentDetails()->getStatus() == 'ERROR' || $response->getPaymentDetails()->getStatus() == 'REVERSALERROR' || $response->getPaymentDetails()->getStatus() == 'ABORTED') {
                     $payment_name = $this->renderPluginName($method);
                     $modelOrder = VmModel::getModel('orders');
