@@ -16,6 +16,7 @@
         <filename plugin="paysondirect">paysondirect.php</filename>
         <folder>payson</folder>
         <folder>language</folder>
+        <folder>tmpl</folder>
     </files>
     
     <vmconfig>
