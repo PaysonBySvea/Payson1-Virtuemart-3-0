@@ -8,7 +8,7 @@ if (!class_exists('vmPSPlugin')) {
 
 class plgVmPaymentPaysoninvoice extends vmPSPlugin {
 
-    public $module_vesion = '3.0.8';
+    public $module_vesion = '3.0.9';
 
     function __construct(& $subject, $config) {
 
