@@ -1,8 +1,4 @@
-# $\textsf{\color{#f5750e}{The services of Payson are being discontinued and the APIs to our services will soon be deprecated and stop working.}}$
-
-## module-payson-virtuemart-3
-
-Payson Payment Module - VirtueMart-3
+# Payson Payment Module - VirtueMart-3
 
 Requirements: 
 
